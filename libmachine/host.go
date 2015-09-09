@@ -13,6 +13,7 @@ import (
 	"github.com/docker/machine/drivers"
 	"github.com/docker/machine/libmachine/auth"
 	"github.com/docker/machine/libmachine/engine"
+	"github.com/docker/machine/libmachine/extension"
 	"github.com/docker/machine/libmachine/provision"
 	"github.com/docker/machine/libmachine/provision/pkgaction"
 	"github.com/docker/machine/libmachine/swarm"
@@ -40,12 +41,13 @@ type Host struct {
 }
 
 type HostOptions struct {
-	Driver        string
-	Memory        int
-	Disk          int
-	EngineOptions *engine.EngineOptions
-	SwarmOptions  *swarm.SwarmOptions
-	AuthOptions   *auth.AuthOptions
+	Driver           string
+	Memory           int
+	Disk             int
+	EngineOptions    *engine.EngineOptions
+	SwarmOptions     *swarm.SwarmOptions
+	AuthOptions      *auth.AuthOptions
+	ExtensionOptions *extension.ExtensionOptions
 }
 
 type HostMetadata struct {
@@ -131,9 +133,19 @@ func (h *Host) Create(name string) error {
 			return err
 		}
 
+		//Get the file path or network location
+		fmt.Println("HEY!!------------\n")
+		fmt.Printf("Extension Options: %+v \n", *h.HostOptions.ExtensionOptions)
+		x := *h.HostOptions.ExtensionOptions
+		//Get all the types  of extensions to install in a slice
+		if err := extension.ExtensionInstall(x.File, provisioner); err != nil {
+			return err
+		}
+
 		if err := provisioner.Provision(*h.HostOptions.SwarmOptions, *h.HostOptions.AuthOptions, *h.HostOptions.EngineOptions); err != nil {
 			return err
 		}
+
 	}
 
 	return nil
