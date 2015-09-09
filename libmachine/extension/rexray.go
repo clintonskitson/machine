@@ -30,9 +30,13 @@ type RexrayExtension struct {
 	GenericExtension
 }
 
-func Install(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) string {
+func (*GenericExtension) Install(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) string {
 	fmt.Println("OMG REXRAY INSTALLER! Provisioner: %+v \n", provisioner)
 	fmt.Println("OMG REXRAY INSTALLER! HostInfo: %+v \n", hostInfo)
 	fmt.Println("OMG REXRAY INSTALLER! extInfo: %+v \n", extInfo)
 	return "did it!"
+}
+
+func (*GenericExtension) Uninstall(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) string {
+	return ""
 }

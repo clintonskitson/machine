@@ -47,7 +47,9 @@ type ExtensionParams struct {
 // Will need an uninstall and maybe an upgrade
 type Extension interface {
 	//install the extension
-	Install(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) stringe
+	Install(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) string
+	//uninstall
+	Uninstall(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) string
 }
 
 //Every extension will need these key value pairs.
@@ -67,7 +69,7 @@ func ExtensionInstall(filename string, provisioner provision.Provisioner) error 
 	}
 
 	//get the host information
-	hostInfo, err := provisonerInfo(provisioner)
+	_, err = provisonerInfo(provisioner)
 	if err != nil {
 		return err
 	}
@@ -126,9 +128,8 @@ func extensionsFile(filename string) (interface{}, error) {
 	}
 	//determine if file is JSON or YML
 	//if JSON
-	err1 := json.Unmarshal([]byte(file), &extI)
-	if err1 != nil {
-		return nil, err1
+	if err := json.Unmarshal([]byte(file), &extI); err != nil {
+		return nil, err
 		//need to way to return error if not correct JSON
 	}
 	fmt.Printf("%+v\n", extI)
