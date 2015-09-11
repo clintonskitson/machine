@@ -42,6 +42,7 @@ type ExtensionParams struct {
 	OsID      string
 	OsVersion string
 	Hostname  string
+	Ip        string
 }
 
 // Distribution specific actions. These are the actions every extension needs.
@@ -134,8 +135,10 @@ func provisonerInfo(provisioner provision.Provisioner) (*ExtensionParams, error)
 	}
 
 	//may need to look into getting the kernel version if it's necessary
-	//need to get the IP address
-	//driver := provisioner.GetDriver()
+	ip, err := provisioner.GetDriver().GetIP()
+	if err != nil {
+		return nil, err
+	}
 
 	hostname, err := provisioner.Hostname()
 	if err != nil {
@@ -147,6 +150,7 @@ func provisonerInfo(provisioner provision.Provisioner) (*ExtensionParams, error)
 		OsID:      os.Id,
 		OsVersion: os.Version,
 		Hostname:  hostname,
+		Ip:        ip,
 	}
 
 	return &params, nil

@@ -38,7 +38,7 @@ func (*GenericExtension) Install(provisioner provision.Provisioner, hostInfo *Ex
 
 	for k, v := range extInfo.attr {
 		log.Debugf("Setting Environment Variables for REXray: %s", k)
-		//provisioner.SSHCommand(fmt.Sprintf("sudo -E bash -c 'echo %s=%s >> /etc/environment'", k, v))
+		provisioner.SSHCommand(fmt.Sprintf("sudo -E bash -c 'echo %s=%s >> /etc/environment'", k, v))
 	}
 
 	log.Debugf("performing: wget of rexray")
