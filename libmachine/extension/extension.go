@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/docker/machine/libmachine/provision"
+	"github.com/docker/machine/log"
 )
 
 //this is the stuct taken as a command line argument.
@@ -47,7 +48,7 @@ type ExtensionParams struct {
 // Will need an uninstall and maybe an upgrade
 type Extension interface {
 	//install the extension
-	Install(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) stringe
+	Install(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) error
 }
 
 //Every extension will need these key value pairs.
@@ -57,13 +58,11 @@ type GenericExtension struct {
 }
 
 //This function is called from libmachine/host.go in the create function
-//since i broke the docker installation, this will need to be moved to the
-//last line on the host.go file
-func ExtensionInstall(filename string, provisioner provision.Provisioner) error {
+func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.Provisioner) error {
 	//this will send the JSON/YML file to parse for info
-	extensionsToInstall, err := extensionsFile(filename)
+	extensionsToInstall, err := extensionsFile(extensionOptions.File)
 	if err != nil {
-		return err
+		return fmt.Errorf("No extensions file specified. Error: %s", err)
 	}
 
 	//get the host information
@@ -71,6 +70,7 @@ func ExtensionInstall(filename string, provisioner provision.Provisioner) error 
 	if err != nil {
 		return err
 	}
+	//fmt.Println(fmt.Sprintf("Host Info: %+v", hostInfo))
 
 	//go through every extension to install and do it.
 	for k, v := range extensionsToInstall.(map[string]interface{}) {
@@ -81,7 +81,6 @@ func ExtensionInstall(filename string, provisioner provision.Provisioner) error 
 		if reflect.TypeOf(v).Kind().String() == "map" {
 			for key, value := range v.(map[string]interface{}) {
 				attr[key] = value.(string)
-				//fmt.Printf("%s=%v\n", key, value)
 			}
 		}
 
@@ -90,28 +89,20 @@ func ExtensionInstall(filename string, provisioner provision.Provisioner) error 
 			name: k,
 			attr: attr,
 		}
-		fmt.Println(fmt.Sprintf("%+v", extInfo))
-
-		//what do the extensions look like?
-		fmt.Println(fmt.Sprintf("%+v", extensions))
 
 		//find if the extension in the JSON file matches a registered extension.
-		for _, e := range extensions {
-			//create the extension interface (copy/pasta from provision.go)
-			//provisioner := p.New(d)
-			extension := e.New()
-			//provisioner.SetOsReleaseInfo(osReleaseInfo)
-			//get the extension informaiton so we can try and compare it
-			fmt.Printf("THE Extension: %+v\n", extension)
-
-			//compare it... this doesn't work yet
-			/*if extension == extInfo.name {
-				//log.Debugf("found compatible host: %s", osReleaseInfo.Id)
-				//fmt.Printf("THE PROVISIONER: %+v\n", provisioner)
+		for extName, extInterface := range extensions {
+			if extName == extInfo.name {
+				//create a new interface
+				extension := extInterface.New()
+				log.Debugf("found compatible extension: %s", extName)
 				//pass everything to the install method and make it happen!
-				extension.Install(provisioner, hostInfo, extInfo)
-				return nil
-			}*/
+				if err := extension.Install(provisioner, hostInfo, extInfo); err != nil {
+					return err
+				}
+			} else {
+				log.Debugf("no compatible extension found for: %s", extInfo.name)
+			}
 		}
 	}
 	return nil
@@ -124,26 +115,26 @@ func extensionsFile(filename string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Debugf("Parsing information from: %s", filename)
 	//determine if file is JSON or YML
 	//if JSON
-	err1 := json.Unmarshal([]byte(file), &extI)
-	if err1 != nil {
-		return nil, err1
-		//need to way to return error if not correct JSON
+	if err := json.Unmarshal([]byte(file), &extI); err != nil {
+		return nil, fmt.Errorf("Error parsing JSON. Is it formatted correctly? Error: %s", err)
 	}
-	fmt.Printf("%+v\n", extI)
-
+	//fmt.Printf("MY EXTi: %+v\n", extI)
 	//return the extension interface
 	return extI, nil
 }
 
 func provisonerInfo(provisioner provision.Provisioner) (*ExtensionParams, error) {
+	log.Debugf("Gathering Host Information for Extensions")
 	os, err := provisioner.GetOsReleaseInfo()
 	if err != nil {
 		return nil, err
 	}
 
 	//may need to look into getting the kernel version if it's necessary
+	//need to get the IP address
 	//driver := provisioner.GetDriver()
 
 	hostname, err := provisioner.Hostname()

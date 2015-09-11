@@ -133,17 +133,14 @@ func (h *Host) Create(name string) error {
 			return err
 		}
 
-		//Get the file path or network location
-		fmt.Println("HEY!!------------\n")
-		fmt.Printf("Extension Options: %+v \n", *h.HostOptions.ExtensionOptions)
-		x := *h.HostOptions.ExtensionOptions
-		//Get all the types  of extensions to install in a slice
-		if err := extension.ExtensionInstall(x.File, provisioner); err != nil {
+		if err := provisioner.Provision(*h.HostOptions.SwarmOptions, *h.HostOptions.AuthOptions, *h.HostOptions.EngineOptions); err != nil {
 			return err
 		}
 
-		if err := provisioner.Provision(*h.HostOptions.SwarmOptions, *h.HostOptions.AuthOptions, *h.HostOptions.EngineOptions); err != nil {
-			return err
+		if h.HostOptions.ExtensionOptions.File != "" {
+			if err := extension.ExtensionInstall(*h.HostOptions.ExtensionOptions, provisioner); err != nil {
+				return err
+			}
 		}
 
 	}
