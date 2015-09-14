@@ -97,14 +97,7 @@ func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.P
 			}
 		}
 
-		/*this will determine is there are key:value pairs within the map
-		if reflect.TypeOf(v).Kind().String() == "map" {
-			for key, value := range v.(map[string]interface{}) {
-				attr[key] = value.(string)
-			}
-		}*/
-
-		//find if the extension in the JSON file matches a registered extension.
+		//see if the extension in the JSON file matches a registered extension.
 		for extName, extInterface := range extensions {
 			if extName == extInfo.name {
 				//create a new interface
@@ -130,12 +123,11 @@ func extensionsFile(filename string) (interface{}, error) {
 		return nil, err
 	}
 	log.Debugf("Parsing information from: %s", filename)
-	//determine if file is JSON or YML
+	//determine if file is JSON or YML -- TODO
 	//if JSON
 	if err := json.Unmarshal([]byte(file), &extI); err != nil {
 		return nil, fmt.Errorf("Error parsing JSON. Is it formatted correctly? Error: %s", err)
 	}
-	//fmt.Printf("MY EXTi: %+v\n", extI)
 	//return the extension interface
 	return extI, nil
 }

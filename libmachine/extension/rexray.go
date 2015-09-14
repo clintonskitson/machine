@@ -3,7 +3,6 @@ package extension
 import (
 	"fmt"
 	"io/ioutil"
-	"strconv"
 
 	"github.com/docker/machine/libmachine/provision"
 	"github.com/docker/machine/log"
@@ -11,7 +10,7 @@ import (
 
 var (
 	rexName    = "rexray"
-	rexVersion = "latest"
+	rexVersion = "0.2.0-rc1"
 )
 
 func init() {
@@ -34,50 +33,35 @@ type RexrayExtension struct {
 }
 
 func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) error {
-	fmt.Println("OMG REXRAY INSTALLER! Provisioner: %+v \n", provisioner)
-	fmt.Println("OMG REXRAY INSTALLER! HostInfo: %+v \n", hostInfo)
-	fmt.Println("OMG REXRAY INSTALLER! extInfo.kv: %+v \n", extInfo.kv)
-	fmt.Println("OMG REXRAY INSTALLER! extInfo.files: %+v \n", extInfo.files)
+	if extInfo.version != rexVersion {
+		rexVersion = extInfo.version
+	}
+	if rexVersion != "latest" {
+		rexVersion = "v" + rexVersion
+	}
 
-	//do we determine host type or version type first
-	//switch host
-	//then switch version
 	if extInfo.kv != nil {
 		rexKvLoop(provisioner, extInfo)
 	}
 
 	switch hostInfo.OsID {
 	case "ubuntu", "debian":
-		switch rexVersion {
-		case strconv.ParseFloat(rexVersion, 64) >= 0.2, "latest":
-			//do some stuff
-			if extInfo.files != nil {
-				rexFilesLoop(provisioner, extInfo)
-			}
-			log.Debugf("performing: wget of rexray")
-
-		case strconv.ParseFloat(rexVersion, 64) < 0.2:
-			//do some other stuff
-
+		//do some stuff
+		if extInfo.files != nil {
+			rexFilesLoop(provisioner, extInfo)
 		}
-
-		log.Debugf("performing: wget of rexray")
-		provisioner.SSHCommand("sudo wget https://github.com/emccode/rexray/releases/download/v0.2.0-rc1/rexray-v0.2.0-rc1-linux-x86_64.tar.gz")
-		provisioner.SSHCommand("sudo tar xvf rexray-v0.2.0-rc1-linux-x86_64.tar.gz")
+		log.Debugf("REXRAY: downloading version %s", rexVersion)
+		provisioner.SSHCommand(fmt.Sprintf("sudo wget https://github.com/emccode/rexray/releases/download/%s/rexray-%s-linux-x86_64.tar.gz", rexVersion, rexVersion))
+		log.Debugf("REXRAY: extracting version %s", rexVersion)
+		provisioner.SSHCommand(fmt.Sprintf("sudo tar xvf rexray-%s-linux-x86_64.tar.gz", rexVersion))
+		log.Debugf("REXRAY: copying binary to /bin")
 		provisioner.SSHCommand("sudo cp rexray /bin/rexray")
+		log.Debugf("REXRAY: adding executable privilege")
 		provisioner.SSHCommand("sudo chmod +x /bin/rexray")
+		log.Debugf("REXRAY: installing service")
 		provisioner.SSHCommand("sudo rexray service install")
-		provisioner.SSHCommand("sudo /etc/init.d/rexray start")
-		//provisioner.SSHCommand("sudo rexray service stop")
-		//provisioner.SSHCommand("sudo AWS_ACCESS_KEY=key AWS_SECRET_KEY=secretkey rexray service start")
-		/*provisioner.SSHCommand("sudo wget -nv https://github.com/emccode/rexraycli/releases/download/latest/rexray-Linux-x86_64 -O /bin/rexray")
-		fmt.Println("performing: sudo chmod +x /bin/rexray")
-		provisioner.SSHCommand("sudo chmod +x /bin/rexray")
-
-		fmt.Println("performing: wget of conf file")
-		provisioner.SSHCommand("sudo wget -nv https://raw.githubusercontent.com/jonasrosland/vagrant-mesos/mesos-rexray/multinodes/scripts/conf_templates/rexray.conf -O /etc/init/rexray.conf")
-		fmt.Println("performing: starting rexray service")
-		provisioner.SSHCommand("sudo service rexray start")*/
+		log.Debugf("REXRAY: starting service")
+		provisioner.SSHCommand("sudo rexray service start")
 	}
 
 	return nil
@@ -88,6 +72,7 @@ func rexKvLoop(provisioner provision.Provisioner, extInfo *ExtensionInfo) error 
 		log.Debugf("Setting Environment Variables for REXray: %s", k)
 		provisioner.SSHCommand(fmt.Sprintf("sudo -E bash -c 'echo %s=%s >> /etc/environment'", k, v))
 	}
+	return nil
 }
 
 func rexFilesLoop(provisioner provision.Provisioner, extInfo *ExtensionInfo) error {
@@ -95,7 +80,7 @@ func rexFilesLoop(provisioner provision.Provisioner, extInfo *ExtensionInfo) err
 		log.Debugf("Transfering Files for REXray: %s", k)
 		file, err := ioutil.ReadFile(v)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		log.Debugf("Parsing information from: %s", file)
 
@@ -107,4 +92,5 @@ func rexFilesLoop(provisioner provision.Provisioner, extInfo *ExtensionInfo) err
 			provisioner.SSHCommand(fmt.Sprintf("sudo -E bash -c 'echo %s=%s >> /etc/environment'", k, v))
 		}
 	}
+	return nil
 }
