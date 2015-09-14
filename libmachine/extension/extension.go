@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"reflect"
+	//"reflect"
 
 	"github.com/docker/machine/libmachine/provision"
 	"github.com/docker/machine/log"
@@ -29,12 +29,15 @@ func RegisterExtension(name string, e *RegisteredExtension) {
 //Used in ExtensionInstall. Name is the name of the extension.
 //attr are the attributes extracted from the JSON/YML file
 type ExtensionInfo struct {
-	name string
-	attr map[string]string
+	name    string
+	version string
+	kv      map[string]string
+	files   map[string]string
 }
 
 //Used in ExtensionInstall. Used to extract attributes
-type attr map[string]string
+type kv map[string]string
+type files map[string]string
 
 //Used in provisionerInfo. All the host info needed by the extensions
 type ExtensionParams struct {
@@ -52,12 +55,6 @@ type Extension interface {
 	Install(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) error
 }
 
-//Every extension will need these key value pairs.
-type GenericExtension struct {
-	extensionName string
-	version       string
-}
-
 //This function is called from libmachine/host.go in the create function
 func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.Provisioner) error {
 	//this will send the JSON/YML file to parse for info
@@ -71,25 +68,41 @@ func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.P
 	if err != nil {
 		return err
 	}
-	//fmt.Println(fmt.Sprintf("Host Info: %+v", hostInfo))
 
 	//go through every extension to install and do it.
 	for k, v := range extensionsToInstall.(map[string]interface{}) {
-		//create the attributes map
-		attr := make(attr)
+		//the extensions and it's attributes are saved in a struct
+		extInfo := &ExtensionInfo{
+			name: k,
+		}
 
-		//this will determine is there are key:value pairs within the map
+		for key, value := range v.(map[string]interface{}) {
+			switch key {
+			case "version":
+				extInfo.version = value.(string)
+			case "kv":
+				//create the kay:value store map
+				kv := make(kv)
+				for kvkey, kvvalue := range value.(map[string]interface{}) {
+					kv[kvkey] = kvvalue.(string)
+				}
+				extInfo.kv = kv
+			case "files":
+				//create the files store map
+				files := make(files)
+				for fileskey, filesvalue := range value.(map[string]interface{}) {
+					files[fileskey] = filesvalue.(string)
+				}
+				extInfo.files = files
+			}
+		}
+
+		/*this will determine is there are key:value pairs within the map
 		if reflect.TypeOf(v).Kind().String() == "map" {
 			for key, value := range v.(map[string]interface{}) {
 				attr[key] = value.(string)
 			}
-		}
-
-		//the extensions and it's attributes are saved in a struct
-		extInfo := &ExtensionInfo{
-			name: k,
-			attr: attr,
-		}
+		}*/
 
 		//find if the extension in the JSON file matches a registered extension.
 		for extName, extInterface := range extensions {
