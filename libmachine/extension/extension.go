@@ -60,7 +60,7 @@ func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.P
 	//this will send the JSON/YML file to parse for info
 	extensionsToInstall, err := extensionsFile(extensionOptions.File)
 	if err != nil {
-		return fmt.Errorf("No extensions file specified. Error: %s", err)
+		return err
 	}
 
 	//get the host information
@@ -102,13 +102,13 @@ func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.P
 			if extName == extInfo.name {
 				//create a new interface
 				extension := extInterface.New()
-				log.Debugf("found compatible extension: %s", extName)
+				log.Debugf("Found compatible extension: %s", extName)
 				//pass everything to the install method and make it happen!
 				if err := extension.Install(provisioner, hostInfo, extInfo); err != nil {
 					return err
 				}
 			} else {
-				log.Debugf("no compatible extension found for: %s", extInfo.name)
+				log.Debugf("No compatible extension found for: %s", extInfo.name)
 			}
 		}
 	}
@@ -120,7 +120,7 @@ func extensionsFile(filename string) (interface{}, error) {
 	var extI interface{}
 	file, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("No extensions file specified. Error: %s", err)
 	}
 	log.Debugf("Parsing information from: %s", filename)
 	//determine if file is JSON or YML -- TODO
