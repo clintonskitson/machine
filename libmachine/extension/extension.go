@@ -31,15 +31,16 @@ func RegisterExtension(name string, e *RegisteredExtension) {
 type ExtensionInfo struct {
 	name    string
 	version string
-	kv      map[string]string
+	params  map[string]string
 	files   map[string]string
 }
 
 //Used in ExtensionInstall. Used to extract attributes
-type kv map[string]string
+//params to params!!
+type params map[string]string
 type files map[string]string
 
-//Used in provisionerInfo. All the host info needed by the extensions
+//ExtensionParams used in provisionerInfo. All the host info needed by the extensions
 type ExtensionParams struct {
 	OsName    string
 	OsID      string
@@ -80,13 +81,13 @@ func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.P
 			switch key {
 			case "version":
 				extInfo.version = value.(string)
-			case "kv":
+			case "params":
 				//create the kay:value store map
-				kv := make(kv)
-				for kvkey, kvvalue := range value.(map[string]interface{}) {
-					kv[kvkey] = kvvalue.(string)
+				params := make(params)
+				for paramskey, paramsvalue := range value.(map[string]interface{}) {
+					params[paramskey] = paramsvalue.(string)
 				}
-				extInfo.kv = kv
+				extInfo.params = params
 			case "files":
 				//create the files store map
 				files := make(files)

@@ -3,7 +3,7 @@ package extension
 import (
 	"fmt"
 	"io/ioutil"
-	"strings"
+	"net/url"
 
 	"github.com/docker/machine/libmachine/provision"
 	"github.com/docker/machine/log"
@@ -11,7 +11,7 @@ import (
 
 var (
 	rexName    = "rexray"
-	rexVersion = "0.2.0-rc1"
+	rexVersion = "0.2.0-rc3+3"
 )
 
 func init() {
@@ -38,12 +38,6 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 		rexVersion = extInfo.version
 	}
 
-	if extInfo.kv != nil {
-		rexKvLoop(provisioner, extInfo)
-	}
-
-	versionHasPlus := strings.Contains(rexVersion, "+")
-
 	switch hostInfo.OsID {
 	case "ubuntu", "debian":
 		log.Debugf("REXRAY: found supported OS: %s", hostInfo.OsID)
@@ -53,13 +47,13 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 	default:
 		return fmt.Errorf("REXRAY not supported on: %s", hostInfo.OsID)
 	}
-	log.Debugf("REXRAY: downloading version %s", rexVersion)
-	if versionHasPlus == true {
-		rexVersionAscii := strings.Replace(rexVersion, "+", "%2B", -1)
-		provisioner.SSHCommand(fmt.Sprintf("wget https://bintray.com/artifact/download/akutz/generic/rexray-linux_amd64-%s.tar.gz", rexVersionAscii))
-	} else {
-		provisioner.SSHCommand(fmt.Sprintf("wget https://bintray.com/artifact/download/akutz/generic/rexray-linux_amd64-%s.tar.gz", rexVersion))
+
+	if extInfo.params != nil {
+		setEnvVars(provisioner, extInfo)
 	}
+
+	log.Debugf("REXRAY: downloading version %s", rexVersion)
+	provisioner.SSHCommand(fmt.Sprintf("wget https://bintray.com/artifact/download/akutz/generic/rexray-linux_amd64-%s.tar.gz", url.QueryEscape(rexVersion)))
 	log.Debugf("REXRAY: extracting version %s", rexVersion)
 	provisioner.SSHCommand(fmt.Sprintf("tar xzf rexray-linux_amd64-%s.tar.gz", rexVersion))
 	log.Debugf("REXRAY: moving binary to /bin")
@@ -74,14 +68,6 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 	log.Debugf("REXRAY: starting service")
 	provisioner.SSHCommand("sudo rexray service start")
 
-	return nil
-}
-
-func rexKvLoop(provisioner provision.Provisioner, extInfo *ExtensionInfo) error {
-	for k, v := range extInfo.kv {
-		log.Debugf("REXRAY: Setting Environment Variables: %s", k)
-		provisioner.SSHCommand(fmt.Sprintf("sudo -E bash -c 'echo %s=%s >> /etc/environment'", k, v))
-	}
 	return nil
 }
 
