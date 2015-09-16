@@ -32,13 +32,13 @@ type ExtensionInfo struct {
 	name    string
 	version string
 	params  map[string]string
-	files   map[string]string
+	files   map[string]interface{}
 }
 
 //Used in ExtensionInstall. Used to extract attributes
 //params to params!!
 type params map[string]string
-type files map[string]string
+type files map[string]interface{}
 
 //ExtensionParams used in provisionerInfo. All the host info needed by the extensions
 type ExtensionParams struct {
@@ -92,7 +92,7 @@ func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.P
 				//create the files store map
 				files := make(files)
 				for fileskey, filesvalue := range value.(map[string]interface{}) {
-					files[fileskey] = filesvalue.(string)
+					files[fileskey] = filesvalue
 				}
 				extInfo.files = files
 			}

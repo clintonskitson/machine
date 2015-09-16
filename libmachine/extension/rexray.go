@@ -2,7 +2,7 @@ package extension
 
 import (
 	"fmt"
-	"io/ioutil"
+	//"io/ioutil"
 	"net/url"
 
 	"github.com/docker/machine/libmachine/provision"
@@ -43,7 +43,9 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 		log.Debugf("REXRAY: found supported OS: %s", hostInfo.OsID)
 	case "centos", "redhat":
 		log.Debugf("REXRAY: found supported OS: %s", hostInfo.OsID)
-		provisioner.SSHCommand("yum install wget -y")
+		if _, err := provisioner.SSHCommand("yum install wget -y"); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("REXRAY not supported on: %s", hostInfo.OsID)
 	}
@@ -53,42 +55,31 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 	}
 
 	log.Debugf("REXRAY: downloading version %s", rexVersion)
-	provisioner.SSHCommand(fmt.Sprintf("wget https://bintray.com/artifact/download/akutz/generic/rexray-linux_amd64-%s.tar.gz", url.QueryEscape(rexVersion)))
+	if _, err := provisioner.SSHCommand(fmt.Sprintf("wget https://bintray.com/artifact/download/akutz/generic/rexray-linux_amd64-%s.tar.gz", url.QueryEscape(rexVersion))); err != nil {
+		return err
+	}
+
 	log.Debugf("REXRAY: extracting version %s", rexVersion)
-	provisioner.SSHCommand(fmt.Sprintf("tar xzf rexray-linux_amd64-%s.tar.gz", rexVersion))
+	if _, err := provisioner.SSHCommand(fmt.Sprintf("tar xzf rexray-linux_amd64-%s.tar.gz", rexVersion)); err != nil {
+		return err
+	}
+
 	log.Debugf("REXRAY: moving binary to /bin")
-	provisioner.SSHCommand("sudo mv rexray /bin/")
+	if _, err := provisioner.SSHCommand("sudo mv rexray /bin/"); err != nil {
+		return err
+	}
+
 	log.Debugf("REXRAY: installing service")
-	provisioner.SSHCommand("sudo rexray service install")
+	if _, err := provisioner.SSHCommand("sudo rexray service install"); err != nil {
+		return err
+	}
 
 	if extInfo.files != nil {
-		rexFilesLoop(provisioner, extInfo)
+		fileImportExport(provisioner, hostInfo, extInfo)
 	}
 
 	log.Debugf("REXRAY: starting service")
 	provisioner.SSHCommand("sudo rexray service start")
 
-	return nil
-}
-
-func rexFilesLoop(provisioner provision.Provisioner, extInfo *ExtensionInfo) error {
-	for k, v := range extInfo.files {
-		//new case for each type of file you want to bring it
-		switch k {
-		case "config.yaml":
-			log.Debugf("REXRAY: Reading File: %s", v)
-			file, err := ioutil.ReadFile(v)
-			if err != nil {
-				return fmt.Errorf("File not found. Error: %s", err)
-			}
-			configPlace := "/etc/rexray/"
-			log.Debugf("REXRAY: Writing File To Host: %s%s", configPlace, k)
-			provisioner.SSHCommand(fmt.Sprintf("sudo mkdir %s", configPlace))
-			provisioner.SSHCommand(fmt.Sprintf("sudo -E bash -c 'cat <<EOF > %s%s\n%s\nEOF'", configPlace, k, string(file)))
-		default:
-			log.Warnf("REXRAY: Not a valid file to import: %s:%s", k, v)
-		}
-
-	}
 	return nil
 }
