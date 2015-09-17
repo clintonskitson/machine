@@ -4,18 +4,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	//"reflect"
 
 	"github.com/docker/machine/libmachine/provision"
 	"github.com/docker/machine/log"
 )
 
-//this is the stuct taken as a command line argument.
+// ExtensionOptions is the stuct taken as a command line argument.
+// This will be a string for where the JSON file is located
 type ExtensionOptions struct {
-	File string //this will be a string for where the JSON or YML ile is located
+	File string
 }
 
-// Detection and registering extensions into a map *NOT WORKING*
+// extensions is used for Detection and registering extensions into a map
 var extensions = make(map[string]*RegisteredExtension)
 
 type RegisteredExtension struct {
@@ -26,8 +26,8 @@ func RegisterExtension(name string, e *RegisteredExtension) {
 	extensions[name] = e
 }
 
-//Used in ExtensionInstall. Name is the name of the extension.
-//attr are the attributes extracted from the JSON/YML file
+// ExtensionInfo is used in ExtensionInstall. Name is the name of the extension.
+// params are the attributes extracted from the JSON file
 type ExtensionInfo struct {
 	name    string
 	version string
@@ -35,12 +35,11 @@ type ExtensionInfo struct {
 	files   map[string]interface{}
 }
 
-//Used in ExtensionInstall. Used to extract attributes
-//params to params!!
+// params is used in ExtensionInstall. Used to extract attributes
 type params map[string]string
 type files map[string]interface{}
 
-//ExtensionParams used in provisionerInfo. All the host info needed by the extensions
+// ExtensionParams is used in provisionerInfo. This is all the host info needed by the extensions for customized installs
 type ExtensionParams struct {
 	OsName    string
 	OsID      string
@@ -49,28 +48,25 @@ type ExtensionParams struct {
 	Ip        string
 }
 
-// Distribution specific actions. These are the actions every extension needs.
-// Will need an uninstall and maybe an upgrade
+// Extension interface are the actions every extension needs.
+// Will need an uninstall and maybe an upgrade later on
 type Extension interface {
 	//install the extension
 	Install(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) error
 }
 
-//This function is called from libmachine/host.go in the create function
+// ExtensionInstall function is called from libmachine/host.go in the create function
 func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.Provisioner) error {
-	//this will send the JSON/YML file to parse for info
 	extensionsToInstall, err := extensionsFile(extensionOptions.File)
 	if err != nil {
 		return err
 	}
 
-	//get the host information
 	hostInfo, err := provisonerInfo(provisioner)
 	if err != nil {
 		return err
 	}
 
-	//go through every extension to install and do it.
 	for k, v := range extensionsToInstall.(map[string]interface{}) {
 		//the extensions and it's attributes are saved in a struct
 		extInfo := &ExtensionInfo{
@@ -98,9 +94,12 @@ func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.P
 			}
 		}
 
-		//see if the extension in the JSON file matches a registered extension.
+		// FindExtension see if the extension in the JSON file matches a registered extension.
+		var extensionFound bool
+	FindExtension:
 		for extName, extInterface := range extensions {
-			if extName == extInfo.name {
+			switch extInfo.name {
+			case extName:
 				//create a new interface
 				extension := extInterface.New()
 				log.Debugf("Found compatible extension: %s", extName)
@@ -108,16 +107,21 @@ func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.P
 				if err := extension.Install(provisioner, hostInfo, extInfo); err != nil {
 					return err
 				}
-			} else {
-				log.Warnf("No compatible extension found for: %s", extInfo.name)
+				extensionFound = true
+				break FindExtension
+			default:
+				extensionFound = false
 			}
+		}
+		if extensionFound == false {
+			log.Warnf("No compatible extension found for: %s", extInfo.name)
 		}
 	}
 	return nil
 }
 
+// extensionsFile is used to parse the extensions JSON file into Go formats
 func extensionsFile(filename string) (interface{}, error) {
-	//this is where we parse the extensions
 	var extI interface{}
 	file, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -129,10 +133,11 @@ func extensionsFile(filename string) (interface{}, error) {
 	if err := json.Unmarshal([]byte(file), &extI); err != nil {
 		return nil, fmt.Errorf("Error parsing JSON. Is it formatted correctly? Error: %s", err)
 	}
-	//return the extension interface
+	// return the extension interface
 	return extI, nil
 }
 
+// provisonerInfo Gets all of the host information for the extension to use for installation
 func provisonerInfo(provisioner provision.Provisioner) (*ExtensionParams, error) {
 	log.Debugf("Gathering Host Information for Extensions")
 	os, err := provisioner.GetOsReleaseInfo()

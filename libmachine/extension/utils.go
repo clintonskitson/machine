@@ -49,6 +49,7 @@ func fileImportExport(provisioner provision.Provisioner, hostInfo *ExtensionPara
 			return err
 		}
 		//check if the destination directory exists, if it doesn't, create it
+		log.Debugf("%s: Checkgin if destination directory exists: %s", strings.ToUpper(extInfo.name), strings.TrimSpace(destPath))
 		if _, err := provisioner.SSHCommand(fmt.Sprintf("sudo -E bash -c '[ ! -d %s  ] && sudo mkdir %s'", strings.TrimSpace(destPath), strings.TrimSpace(destPath))); err != nil {
 			return err
 		}
