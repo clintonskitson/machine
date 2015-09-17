@@ -11,7 +11,7 @@ import (
 
 func setEnvVars(provisioner provision.Provisioner, extInfo *ExtensionInfo) error {
 	for k, v := range extInfo.params {
-		log.Debugf("%s: Setting Environment Variables: %s", extInfo.name, k)
+		log.Debugf("%s: Setting Environment Variable: %s", strings.ToUpper(extInfo.name), k)
 		if _, err := provisioner.SSHCommand(fmt.Sprintf("sudo -E bash -c 'echo %s=%s >> /etc/environment'", k, v)); err != nil {
 			return err
 		}
@@ -26,12 +26,9 @@ func fileImportExport(provisioner provision.Provisioner, hostInfo *ExtensionPara
 	}
 
 	for _, v := range extInfo.files {
-		fmt.Printf("EXTINFO.FILES V: %#v\n", v)
 		var source string
 		var destination string
 		for key, value := range v.(map[string]interface{}) {
-			fmt.Printf("THE INTERFACE KEY: %s IS TYPE %T\n", key, key)
-			fmt.Printf("THE INTERFACE KEY: %s IS TYPE %T\n", value, value)
 			switch key {
 			case "source":
 				source = value.(string)
@@ -40,41 +37,27 @@ func fileImportExport(provisioner provision.Provisioner, hostInfo *ExtensionPara
 			}
 		}
 
-		srcFilename, srcPath := returnFilePathString(source)
 		destFilename, destPath := returnFilePathString(destination)
-		/*srcFullPathSlice := strings.SplitAfterN(source, "/", 100)
-		srcFilename := srcFullPathSlice[len(srcFullPathSlice)-1]
-		fmt.Printf("SRC_FILENAME: %s\n", srcFilename)
-		srcPathSlice := srcFullPathSlice[:len(srcFullPathSlice)-1]
-		srcPath := strings.Join(srcPathSlice[:], "")
-		fmt.Printf("SRC PATH : %s\n", srcPath)
-
-		destFullPathSlice := strings.SplitAfterN(destination, "/", 100)
-		destFilename := destFullPathSlice[len(destFullPathSlice)-1]
-		fmt.Printf("DEST_FILENAME: %s\n", destFilename)
-		destPathSlice := destFullPathSlice[:len(destFullPathSlice)-1]
-		destPath := strings.Join(destPathSlice[:], "")
-		fmt.Printf("DEST PATH : %s\n", destPath)*/
-
-		fmt.Printf("SRC_FILENAME: %s\n", srcFilename)
-		fmt.Printf("SRC_PATH: %s\n", srcPath)
-		fmt.Printf("DST_FILENAME: %s\n", destFilename)
-		fmt.Printf("DST_PATH: %s\n", destPath)
 
 		app := "docker-machine"
 		arg0 := "scp"
 		arg1 := source
 		arg2 := fmt.Sprintf("%v:%v/%v", strings.TrimSpace(hostInfo.Hostname), strings.TrimSpace(homeDir), strings.TrimSpace(destFilename))
-		cmd := exec.Command(app, arg0, arg1, arg2)
-		stdout, err := cmd.Output()
-
-		if err != nil {
-			println("My Error: ", err.Error())
-			return nil
+		//call docker-machine scp to transfer the local file to a directory where it has writeable access
+		log.Debugf("%s: Transferring %s to home directory: %s", strings.ToUpper(extInfo.name), strings.TrimSpace(source), strings.TrimSpace(homeDir))
+		if _, err := exec.Command(app, arg0, arg1, arg2).Output(); err != nil {
+			return err
 		}
-		print(string(stdout))
+		//check if the destination directory exists, if it doesn't, create it
+		if _, err := provisioner.SSHCommand(fmt.Sprintf("sudo -E bash -c '[ ! -d %s  ] && sudo mkdir %s'", strings.TrimSpace(destPath), strings.TrimSpace(destPath))); err != nil {
+			return err
+		}
+		//move the file from the home directory to its destination directory
+		log.Debugf("%s: Moving %s to destination directory: %s", strings.ToUpper(extInfo.name), strings.TrimSpace(destFilename), strings.TrimSpace(destPath))
+		if _, err := provisioner.SSHCommand(fmt.Sprintf("sudo mv %s/%s %s%s", strings.TrimSpace(homeDir), strings.TrimSpace(destFilename), strings.TrimSpace(destPath), strings.TrimSpace(destFilename))); err != nil {
+			return err
+		}
 	}
-
 	return nil
 }
 
@@ -85,26 +68,3 @@ func returnFilePathString(fullpath string) (file, path string) {
 	path = strings.Join(pathSlice[:], "")
 	return file, path
 }
-
-/*func rexFilesLoop(provisioner provision.Provisioner, extInfo *ExtensionInfo) error {
-	for k, v := range extInfo.files {
-		//new case for each type of file you want to bring it
-		switch k {
-		case "config.yaml":
-			log.Debugf("REXRAY: Reading File: %s", v)
-			file, err := ioutil.ReadFile(v)
-			if err != nil {
-				return fmt.Errorf("File not found. Error: %s", err)
-			}
-			configPlace := "/etc/rexray/"
-			log.Debugf("REXRAY: Writing File To Host: %s%s", configPlace, k)
-			provisioner.SSHCommand(fmt.Sprintf("sudo mkdir %s", configPlace))
-			provisioner.SSHCommand(fmt.Sprintf("sudo -E bash -c 'cat <<EOF > %s%s\n%s\nEOF'", configPlace, k, string(file)))
-		default:
-			log.Warnf("REXRAY: Not a valid file to import: %s:%s", k, v)
-		}
-
-	}
-	return nil
-}
-*/

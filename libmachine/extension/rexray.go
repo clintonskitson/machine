@@ -2,8 +2,8 @@ package extension
 
 import (
 	"fmt"
-	//"io/ioutil"
 	"net/url"
+	"strings"
 
 	"github.com/docker/machine/libmachine/provision"
 	"github.com/docker/machine/log"
@@ -39,37 +39,32 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 	}
 
 	switch hostInfo.OsID {
-	case "ubuntu", "debian":
-		log.Debugf("REXRAY: found supported OS: %s", hostInfo.OsID)
-	case "centos", "redhat":
-		log.Debugf("REXRAY: found supported OS: %s", hostInfo.OsID)
-		if _, err := provisioner.SSHCommand("yum install wget -y"); err != nil {
-			return err
-		}
+	case "ubuntu", "debian", "centos", "redhat":
+		log.Debugf("%s: found supported OS: %s", strings.ToUpper(extInfo.name), hostInfo.OsID)
 	default:
-		return fmt.Errorf("REXRAY not supported on: %s", hostInfo.OsID)
+		return fmt.Errorf("%s not supported on: %s", strings.ToUpper(extInfo.name), hostInfo.OsID)
 	}
 
 	if extInfo.params != nil {
 		setEnvVars(provisioner, extInfo)
 	}
 
-	log.Debugf("REXRAY: downloading version %s", rexVersion)
+	log.Debugf("%s: downloading version %s", strings.ToUpper(extInfo.name), rexVersion)
 	if _, err := provisioner.SSHCommand(fmt.Sprintf("wget https://bintray.com/artifact/download/akutz/generic/rexray-linux_amd64-%s.tar.gz", url.QueryEscape(rexVersion))); err != nil {
 		return err
 	}
 
-	log.Debugf("REXRAY: extracting version %s", rexVersion)
+	log.Debugf("%s: extracting version %s", strings.ToUpper(extInfo.name), rexVersion)
 	if _, err := provisioner.SSHCommand(fmt.Sprintf("tar xzf rexray-linux_amd64-%s.tar.gz", rexVersion)); err != nil {
 		return err
 	}
 
-	log.Debugf("REXRAY: moving binary to /bin")
+	log.Debugf("%s: moving binary to /bin", strings.ToUpper(extInfo.name))
 	if _, err := provisioner.SSHCommand("sudo mv rexray /bin/"); err != nil {
 		return err
 	}
 
-	log.Debugf("REXRAY: installing service")
+	log.Debugf("%s: installing service", strings.ToUpper(extInfo.name))
 	if _, err := provisioner.SSHCommand("sudo rexray service install"); err != nil {
 		return err
 	}
@@ -78,7 +73,7 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 		fileImportExport(provisioner, hostInfo, extInfo)
 	}
 
-	log.Debugf("REXRAY: starting service")
+	log.Debugf("%s: starting service", strings.ToUpper(extInfo.name))
 	provisioner.SSHCommand("sudo rexray service start")
 
 	return nil

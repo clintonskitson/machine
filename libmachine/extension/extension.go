@@ -109,7 +109,7 @@ func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.P
 					return err
 				}
 			} else {
-				log.Debugf("No compatible extension found for: %s", extInfo.name)
+				log.Warnf("No compatible extension found for: %s", extInfo.name)
 			}
 		}
 	}
