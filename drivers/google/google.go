@@ -2,6 +2,7 @@ package google
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/codegangsta/cli"
 	"github.com/docker/machine/drivers"
@@ -22,6 +23,7 @@ type Driver struct {
 	DiskSize      int
 	AuthTokenPath string
 	Project       string
+	Tags          []string
 }
 
 func init() {
@@ -31,7 +33,7 @@ func init() {
 	})
 }
 
-// RegisterCreateFlags registers the flags this driver adds to
+// GetCreateFlags registers the flags this driver adds to
 // "docker hosts create"
 func GetCreateFlags() []cli.Flag {
 	return []cli.Flag{
@@ -91,6 +93,11 @@ func GetCreateFlags() []cli.Flag {
 			Usage:  "GCE Instance Preemptibility",
 			EnvVar: "GOOGLE_PREEMPTIBLE",
 		},
+		cli.StringFlag{
+			Name:   "google-tags",
+			Usage:  "GCE Instance Tags (comma-separated)",
+			EnvVar: "GOOGLE_TAGS",
+		},
 	}
 }
 
@@ -100,15 +107,16 @@ func NewDriver(machineName string, storePath string, caCert string, privateKey s
 	return &Driver{BaseDriver: inner}, nil
 }
 
+// GetSSHHostname returns hostname for use with ssh
 func (d *Driver) GetSSHHostname() (string, error) {
 	return d.GetIP()
 }
 
+// GetSSHUsername returns username for use with ssh
 func (d *Driver) GetSSHUsername() string {
 	if d.SSHUser == "" {
 		d.SSHUser = "docker-user"
 	}
-
 	return d.SSHUser
 }
 
@@ -128,6 +136,7 @@ func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
 	d.AuthTokenPath = flags.String("google-auth-token")
 	d.Project = flags.String("google-project")
 	d.Scopes = flags.String("google-scopes")
+	d.Tags = flags.StringSlice("google-tags")
 	d.SwarmMaster = flags.Bool("swarm-master")
 	d.SwarmHost = flags.String("swarm-host")
 	d.SwarmDiscovery = flags.String("swarm-discovery")
@@ -143,6 +152,8 @@ func (d *Driver) initApis() (*ComputeUtil, error) {
 	return newComputeUtil(d)
 }
 
+// PreCreateCheck allows for pre-create operations to make sure a driver is ready for creation
+// It's a noop on GCE.
 func (d *Driver) PreCreateCheck() error {
 	return nil
 }
@@ -216,30 +227,52 @@ func (d *Driver) GetState() (state.State, error) {
 	return state.None, nil
 }
 
-// Start creates a GCE instance and attaches it to the existing disk.
+// Start starts an existing GCE instance or create an instance with an existing disk.
 func (d *Driver) Start() error {
 	c, err := newComputeUtil(d)
 	if err != nil {
 		return err
 	}
-	if err = c.createInstance(d); err != nil {
-		return err
+
+	instance, err := c.instance()
+	if err != nil {
+		if !strings.Contains(err.Error(), "notFound") {
+			return err
+		}
 	}
+
+	if instance == nil {
+		if err = c.createInstance(d); err != nil {
+			return err
+		}
+	} else {
+		if err := c.startInstance(); err != nil {
+			return err
+		}
+	}
+
 	d.IPAddress, err = d.GetIP()
 	return err
 }
 
-// Stop deletes the GCE instance, but keeps the disk.
+// Stop stops an existing GCE instance.
 func (d *Driver) Stop() error {
 	c, err := newComputeUtil(d)
 	if err != nil {
 		return err
 	}
-	if err = c.deleteInstance(); err != nil {
+
+	if err := c.stopInstance(); err != nil {
 		return err
 	}
+
 	d.IPAddress = ""
 	return nil
+}
+
+// Kill stops an existing GCE instance.
+func (d *Driver) Kill() error {
+	return d.Stop()
 }
 
 // Remove deletes the GCE instance and the disk.
@@ -260,20 +293,6 @@ func (d *Driver) Remove() error {
 	return c.deleteDisk()
 }
 
-// Restart deletes and recreates the GCE instance, keeping the disk.
 func (d *Driver) Restart() error {
-	c, err := newComputeUtil(d)
-	if err != nil {
-		return err
-	}
-	if err := c.deleteInstance(); err != nil {
-		return err
-	}
-
-	return c.createInstance(d)
-}
-
-// Kill deletes the GCE instance, but keeps the disk.
-func (d *Driver) Kill() error {
-	return d.Stop()
+	return nil
 }
