@@ -2,7 +2,6 @@ package extension
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/docker/machine/libmachine/provision"
@@ -11,7 +10,7 @@ import (
 
 var (
 	rexName    = "rexray"
-	rexVersion = "0.2.0-rc3+3"
+	rexVersion = "stable"
 )
 
 func init() {
@@ -49,24 +48,39 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 		setEnvVars(provisioner, extInfo)
 	}
 
-	log.Debugf("%s: downloading version %s", strings.ToUpper(extInfo.name), rexVersion)
-	if _, err := provisioner.SSHCommand(fmt.Sprintf("wget https://bintray.com/artifact/download/akutz/generic/rexray-linux_amd64-%s.tar.gz", url.QueryEscape(rexVersion))); err != nil {
-		return err
-	}
-
-	log.Debugf("%s: extracting version %s", strings.ToUpper(extInfo.name), rexVersion)
-	if _, err := provisioner.SSHCommand(fmt.Sprintf("tar xzf rexray-linux_amd64-%s.tar.gz", rexVersion)); err != nil {
-		return err
-	}
-
-	log.Debugf("%s: moving binary to /bin", strings.ToUpper(extInfo.name))
-	if _, err := provisioner.SSHCommand("sudo mv rexray /bin/"); err != nil {
-		return err
-	}
-
-	log.Debugf("%s: installing service", strings.ToUpper(extInfo.name))
-	if _, err := provisioner.SSHCommand("sudo rexray service install"); err != nil {
-		return err
+	log.Debugf("%s: installing version: %s", strings.ToUpper(extInfo.name), rexVersion)
+	switch rexVersion {
+	case "stable", "staged", "latest":
+		if _, err := provisioner.SSHCommand("curl -sSL https://dl.bintray.com/emccode/rexray/install | sh "); err != nil {
+			return err
+		}
+	case "stupid", "experimental":
+		uNameS, err := provisioner.SSHCommand("uname -s")
+		if err != nil {
+			return err
+		}
+		uNameM, err := provisioner.SSHCommand("uname -m")
+		if err != nil {
+			return err
+		}
+		log.Debugf("%s: downloading version %s", strings.ToUpper(extInfo.name), rexVersion)
+		if _, err := provisioner.SSHCommand(fmt.Sprintf("curl -L 'https://dl.bintray.com/emccode/rexray/stupid/latest/rexray-%s-%s.tar.gz' -o 'rexray-%s-%s.tar.gz'", strings.TrimSpace(uNameS), strings.TrimSpace(uNameM), strings.TrimSpace(uNameS), strings.TrimSpace(uNameM))); err != nil {
+			return err
+		}
+		log.Debugf("%s: extracting version %s", strings.ToUpper(extInfo.name), rexVersion)
+		if _, err := provisioner.SSHCommand(fmt.Sprintf("tar xzf rexray-%s-%s.tar.gz", strings.TrimSpace(uNameS), strings.TrimSpace(uNameM))); err != nil {
+			return err
+		}
+		log.Debugf("%s: moving binary to /bin", strings.ToUpper(extInfo.name))
+		if _, err := provisioner.SSHCommand("sudo mv rexray /usr/bin"); err != nil {
+			return err
+		}
+		log.Debugf("%s: installing service", strings.ToUpper(extInfo.name))
+		if strings.TrimSpace(uNameS) != "Darwin" {
+			if _, err := provisioner.SSHCommand("sudo /usr/bin/rexray service install"); err != nil {
+				return err
+			}
+		}
 	}
 
 	if extInfo.files != nil {
