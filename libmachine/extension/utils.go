@@ -40,7 +40,9 @@ func fileImportExport(provisioner provision.Provisioner, hostInfo *ExtensionPara
 			}
 		}
 
-		srcFullPathSlice := strings.SplitAfterN(source, "/", 100)
+		srcFilename, srcPath := returnFilePathString(source)
+		destFilename, destPath := returnFilePathString(destination)
+		/*srcFullPathSlice := strings.SplitAfterN(source, "/", 100)
 		srcFilename := srcFullPathSlice[len(srcFullPathSlice)-1]
 		fmt.Printf("SRC_FILENAME: %s\n", srcFilename)
 		srcPathSlice := srcFullPathSlice[:len(srcFullPathSlice)-1]
@@ -52,24 +54,36 @@ func fileImportExport(provisioner provision.Provisioner, hostInfo *ExtensionPara
 		fmt.Printf("DEST_FILENAME: %s\n", destFilename)
 		destPathSlice := destFullPathSlice[:len(destFullPathSlice)-1]
 		destPath := strings.Join(destPathSlice[:], "")
-		fmt.Printf("DEST PATH : %s\n", destPath)
+		fmt.Printf("DEST PATH : %s\n", destPath)*/
+
+		fmt.Printf("SRC_FILENAME: %s\n", srcFilename)
+		fmt.Printf("SRC_PATH: %s\n", srcPath)
+		fmt.Printf("DST_FILENAME: %s\n", destFilename)
+		fmt.Printf("DST_PATH: %s\n", destPath)
 
 		app := "docker-machine"
 		arg0 := "scp"
 		arg1 := source
-		arg2 := hostInfo.Hostname + ":" + homeDir + destFilename
-
+		arg2 := fmt.Sprintf("%v:%v/%v", strings.TrimSpace(hostInfo.Hostname), strings.TrimSpace(homeDir), strings.TrimSpace(destFilename))
 		cmd := exec.Command(app, arg0, arg1, arg2)
 		stdout, err := cmd.Output()
 
 		if err != nil {
-			println("My Error: ", err)
+			println("My Error: ", err.Error())
 			return nil
 		}
 		print(string(stdout))
 	}
 
 	return nil
+}
+
+func returnFilePathString(fullpath string) (file, path string) {
+	fullPathSlice := strings.SplitAfterN(fullpath, "/", 100)
+	file = fullPathSlice[len(fullPathSlice)-1]
+	pathSlice := fullPathSlice[:len(fullPathSlice)-1]
+	path = strings.Join(pathSlice[:], "")
+	return file, path
 }
 
 /*func rexFilesLoop(provisioner provision.Provisioner, extInfo *ExtensionInfo) error {
