@@ -16,6 +16,7 @@ import (
 	"github.com/docker/machine/libmachine/extension"
 	"github.com/docker/machine/libmachine/provision"
 	"github.com/docker/machine/libmachine/provision/pkgaction"
+	"github.com/docker/machine/libmachine/provision/serviceaction"
 	"github.com/docker/machine/libmachine/swarm"
 	"github.com/docker/machine/log"
 	"github.com/docker/machine/ssh"
@@ -253,7 +254,7 @@ func (h *Host) Upgrade() error {
 		return err
 	}
 
-	if err := provisioner.Service("docker", pkgaction.Restart); err != nil {
+	if err := provisioner.Service("docker", serviceaction.Restart); err != nil {
 		return err
 	}
 	return nil
