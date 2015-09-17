@@ -37,6 +37,8 @@ type ExtensionInfo struct {
 
 // params is used in ExtensionInstall. Used to extract attributes
 type params map[string]string
+
+// files is used in ExtensionInstall. Used to create key:value of files to transfer
 type files map[string]interface{}
 
 // ExtensionParams is used in provisionerInfo. This is all the host info needed by the extensions for customized installs

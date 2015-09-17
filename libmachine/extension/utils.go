@@ -19,15 +19,14 @@ func setEnvVars(provisioner provision.Provisioner, extInfo *ExtensionInfo) error
 	return nil
 }
 
-func fileImportExport(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) error {
+func fileTransfer(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) error {
 	homeDir, err := provisioner.SSHCommand("echo $HOME")
 	if err != nil {
 		return err
 	}
 
 	for _, v := range extInfo.files {
-		var source string
-		var destination string
+		var source, destination string
 		for key, value := range v.(map[string]interface{}) {
 			switch key {
 			case "source":
@@ -49,7 +48,7 @@ func fileImportExport(provisioner provision.Provisioner, hostInfo *ExtensionPara
 			return err
 		}
 		//check if the destination directory exists, if it doesn't, create it
-		log.Debugf("%s: Checkgin if destination directory exists: %s", strings.ToUpper(extInfo.name), strings.TrimSpace(destPath))
+		log.Debugf("%s: Checking if destination directory exists: %s", strings.ToUpper(extInfo.name), strings.TrimSpace(destPath))
 		if _, err := provisioner.SSHCommand(fmt.Sprintf("sudo -E bash -c '[ ! -d %s  ] && sudo mkdir %s'", strings.TrimSpace(destPath), strings.TrimSpace(destPath))); err != nil {
 			return err
 		}

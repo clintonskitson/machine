@@ -84,7 +84,7 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 	}
 
 	if extInfo.files != nil {
-		fileImportExport(provisioner, hostInfo, extInfo)
+		fileTransfer(provisioner, hostInfo, extInfo)
 	}
 
 	log.Debugf("%s: starting service", strings.ToUpper(extInfo.name))
