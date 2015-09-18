@@ -44,8 +44,8 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 		return fmt.Errorf("%s not supported on: %s", strings.ToUpper(extInfo.name), hostInfo.OsID)
 	}
 
-	if extInfo.params != nil {
-		setEnvVars(provisioner, extInfo)
+	if extInfo.envs != nil {
+		appendEnvFile(provisioner, extInfo)
 	}
 
 	log.Debugf("%s: installing version: %s", strings.ToUpper(extInfo.name), rexVersion)

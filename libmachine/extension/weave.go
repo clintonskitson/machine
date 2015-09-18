@@ -19,6 +19,7 @@ func init() {
 	})
 }
 
+// NewWeaveExtension returns the generic extension for weave
 func NewWeaveExtension() Extension {
 	return &WeaveExtension{
 		GenericExtension{
@@ -28,10 +29,12 @@ func NewWeaveExtension() Extension {
 	}
 }
 
+// WeaveExtension is a generic struct
 type WeaveExtension struct {
 	GenericExtension
 }
 
+// Install will install run the Weave install workflow
 func (extension *WeaveExtension) Install(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) error {
 	if extInfo.version != weaveVersion {
 		weaveVersion = extInfo.version
@@ -53,7 +56,7 @@ func (extension *WeaveExtension) Install(provisioner provision.Provisioner, host
 		return fmt.Errorf("%s not supported on: %s", strings.ToUpper(extInfo.name), hostInfo.OsID)
 	}
 
-	if extInfo.params != nil {
+	if extInfo.envs != nil {
 		weaveLaunch(provisioner, extInfo)
 	} else {
 		log.Debugf("%s: launching first weave node", strings.ToUpper(extInfo.name))
@@ -66,7 +69,7 @@ func (extension *WeaveExtension) Install(provisioner provision.Provisioner, host
 }
 
 func weaveLaunch(provisioner provision.Provisioner, extInfo *ExtensionInfo) error {
-	for k, v := range extInfo.params {
+	for k, v := range extInfo.envs {
 		if k == "peer" {
 			log.Debugf("%s: Launching Peer Connection to: %s", strings.ToUpper(extInfo.name), v)
 			if _, err := provisioner.SSHCommand(fmt.Sprintf("sudo weave launch %s", v)); err != nil {

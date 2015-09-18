@@ -43,8 +43,8 @@ func (extension *GenericExtension) Install(provisioner provision.Provisioner, ho
 		return fmt.Errorf("%s not supported on: %s", strings.ToUpper(extInfo.name), hostInfo.OsID)
 	}
 
-	if extInfo.params != nil {
-		setEnvVars(provisioner, extInfo)
+	if extInfo.envs != nil {
+		appendEnvFile(provisioner, extInfo)
 	}
 
 	if extInfo.files != nil {

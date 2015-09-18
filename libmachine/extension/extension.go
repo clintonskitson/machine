@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/docker/machine/libmachine/provision"
 	"github.com/docker/machine/log"
@@ -26,22 +27,23 @@ func RegisterExtension(name string, e *RegisteredExtension) {
 	extensions[name] = e
 }
 
+// Used to hold environment variables for /etc/environment
+type envs map[string]string
+
+// Used to create key:value of files to transfer.
+// The interface{} is another map with a key of source, and definition for specific extensions to use
+type files map[string]map[string]string
+
 // ExtensionInfo is used in ExtensionInstall. Name is the name of the extension.
 // params are the attributes extracted from the JSON file
 type ExtensionInfo struct {
-	name     string
-	version  string
-	params   map[string]string
-	files    map[string]interface{}
-	commands []string
-	validOS  []string
+	name    string
+	version string
+	envs    envs
+	files   files
+	run     []string
+	validOS []string
 }
-
-// params is used in ExtensionInstall. Used to extract attributes
-type params map[string]string
-
-// files is used in ExtensionInstall. Used to create key:value of files to transfer
-type files map[string]interface{}
 
 // ExtensionParams is used in provisionerInfo. This is all the host info needed by the extensions for customized installs
 type ExtensionParams struct {
@@ -59,79 +61,106 @@ type Extension interface {
 	Install(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) error
 }
 
-// ExtensionInstall function is called from libmachine/host.go in the create function
-func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.Provisioner) error {
-	extensionsToInstall, err := extensionsFile(extensionOptions.File)
-	if err != nil {
-		return err
-	}
+var extInfo *ExtensionInfo
 
-	hostInfo, err := provisonerInfo(provisioner)
+func ParseExtensionFile(extensionOptions ExtensionOptions) error {
+	extensionsToInstall, err := extensionsFile(extensionOptions.File)
 	if err != nil {
 		return err
 	}
 
 	for k, v := range extensionsToInstall.(map[string]interface{}) {
 		//the extensions and it's attributes are saved in a struct
-		extInfo := &ExtensionInfo{
+		extInfo = &ExtensionInfo{
 			name: k,
 		}
 
 		for key, value := range v.(map[string]interface{}) {
 			switch key {
 			case "version":
+				log.Debugf("%s: Parsing version", strings.ToUpper(extInfo.name))
 				extInfo.version = value.(string)
+				log.Debugf("%s: version=%s", strings.ToUpper(extInfo.name), extInfo.version)
 			case "envs":
-				//create the kay:value store map
-				params := make(params)
-				for paramskey, paramsvalue := range value.(map[string]interface{}) {
-					params[paramskey] = paramsvalue.(string)
+				log.Debugf("%s: Parsing envs", strings.ToUpper(extInfo.name))
+				envs := make(envs)
+				for k, v := range value.(map[string]interface{}) {
+					envs[k] = v.(string)
 				}
-				extInfo.params = params
+				extInfo.envs = envs
+				log.Debugf("%s: envs=%v", strings.ToUpper(extInfo.name), extInfo.envs)
 			case "files":
-				//create the files store map
+				log.Debugf("%s: Parsing files", strings.ToUpper(extInfo.name))
 				files := make(files)
 				for fileskey, filesvalue := range value.(map[string]interface{}) {
-					files[fileskey] = filesvalue
+					files[fileskey] = filesvalue.(map[string]string)
 				}
 				extInfo.files = files
+				log.Debugf("%s: files=%v", strings.ToUpper(extInfo.name), files)
 			case "validOS":
+				log.Debugf("%s: Parsing validOS", strings.ToUpper(extInfo.name))
 				extInfo.validOS = make([]string, 0)
 				for _, val := range value.([]interface{}) {
 					extInfo.validOS = append(extInfo.validOS, val.(string))
 				}
-			case "commands":
-				extInfo.commands = make([]string, 0)
+				log.Debugf("%s: validOS=%v", strings.ToUpper(extInfo.name), extInfo.validOS)
+			case "run":
+				log.Debugf("%s: Parsing run", strings.ToUpper(extInfo.name))
+				extInfo.run = make([]string, 0)
 				for _, val := range value.([]interface{}) {
-					extInfo.commands = append(extInfo.commands, val.(string))
+					extInfo.run = append(extInfo.run, val.(string))
+					log.Debugf("%s: run=%v", strings.ToUpper(extInfo.name), val.(string))
 				}
+
+			case "copy":
+				files := make(files)
+				const keyi = string(iota)
+				for fileskey, filesvalue := range value.(map[string]interface{}) {
+					files[keyi] = map[string]string{
+						"source":      fileskey,
+						"destination": filesvalue.(string),
+					}
+					log.Debugf("%s: files[%s]=%v", strings.ToUpper(extInfo.name), keyi, files[keyi])
+				}
+				extInfo.files = files
 			}
 
-		}
-
-		// FindExtension see if the extension in the JSON file matches a registered extension.
-		var extensionFound bool
-	FindExtension:
-		for extName, extInterface := range extensions {
-			switch extInfo.name {
-			case extName:
-				//create a new interface
-				extension := extInterface.New()
-				log.Debugf("Found compatible extension: %s", extName)
-				//pass everything to the install method and make it happen!
-				if err := extension.Install(provisioner, hostInfo, extInfo); err != nil {
-					return err
-				}
-				extensionFound = true
-				break FindExtension
-			default:
-				extensionFound = false
-			}
-		}
-		if extensionFound == false {
-			log.Warnf("No compatible extension found for: %s", extInfo.name)
 		}
 	}
+	return nil
+}
+
+// ExtensionInstall function is called from libmachine/host.go in the create function
+func ExtensionInstall(provisioner provision.Provisioner) error {
+
+	hostInfo, err := provisonerInfo(provisioner)
+	if err != nil {
+		return err
+	}
+
+	// FindExtension see if the extension in the JSON file matches a registered extension.
+	var extensionFound bool
+FindExtension:
+	for extName, extInterface := range extensions {
+		switch extInfo.name {
+		case extName:
+			//create a new interface
+			extension := extInterface.New()
+			log.Debugf("Found compatible extension: %s", extName)
+			//pass everything to the install method and make it happen!
+			if err := extension.Install(provisioner, hostInfo, extInfo); err != nil {
+				return err
+			}
+			extensionFound = true
+			break FindExtension
+		default:
+			extensionFound = false
+		}
+	}
+	if extensionFound == false {
+		log.Warnf("No compatible extension found for: %s", extInfo.name)
+	}
+
 	return nil
 }
 

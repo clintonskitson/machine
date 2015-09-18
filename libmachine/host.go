@@ -109,6 +109,12 @@ func ValidateHostName(name string) bool {
 }
 
 func (h *Host) Create(name string) error {
+	if h.HostOptions.ExtensionOptions.File != "" {
+		if err := extension.ParseExtensionFile(*h.HostOptions.ExtensionOptions); err != nil {
+			return err
+		}
+	}
+
 	// create the instance
 	if err := h.Driver.Create(); err != nil {
 		return err
@@ -139,7 +145,7 @@ func (h *Host) Create(name string) error {
 		}
 
 		if h.HostOptions.ExtensionOptions.File != "" {
-			if err := extension.ExtensionInstall(*h.HostOptions.ExtensionOptions, provisioner); err != nil {
+			if err := extension.ExtensionInstall(provisioner); err != nil {
 				return err
 			}
 		}

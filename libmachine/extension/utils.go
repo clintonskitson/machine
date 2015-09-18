@@ -2,6 +2,7 @@ package extension
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -10,8 +11,8 @@ import (
 	"github.com/docker/machine/log"
 )
 
-func setEnvVars(provisioner provision.Provisioner, extInfo *ExtensionInfo) error {
-	for k, v := range extInfo.params {
+func appendEnvFile(provisioner provision.Provisioner, extInfo *ExtensionInfo) error {
+	for k, v := range extInfo.envs {
 		log.Debugf("%s: Setting Environment Variable: %s", strings.ToUpper(extInfo.name), k)
 		if _, err := provisioner.SSHCommand(fmt.Sprintf("sudo -E bash -c 'echo %s=%s >> /etc/environment'", k, v)); err != nil {
 			return err
@@ -23,12 +24,12 @@ func setEnvVars(provisioner provision.Provisioner, extInfo *ExtensionInfo) error
 func fileTransfer(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) error {
 	for _, v := range extInfo.files {
 		var source, destination string
-		for key, value := range v.(map[string]interface{}) {
+		for key, value := range v {
 			switch key {
 			case "source":
-				source = value.(string)
+				source = value
 			case "destination":
-				destination = value.(string)
+				destination = value
 			}
 		}
 
@@ -40,12 +41,15 @@ func fileTransfer(provisioner provision.Provisioner, hostInfo *ExtensionParams, 
 			return err
 		}
 
-		app := "docker-machine"
+		dmFile := os.Args[0]
+		dmPath, _ := filepath.Abs(dmFile)
+		log.Debugf("%s: Using docker machine binary at: %s", strings.ToUpper(extInfo.name), dmPath)
+		app := dmPath
 		arg0 := "scp"
 		arg1 := source
-		arg2 := fmt.Sprintf("%v:%v", hostInfo.Hostname, destination)
+		arg2 := fmt.Sprintf("%v:%v", strings.TrimSpace(hostInfo.Hostname), destination)
 		//call docker-machine scp to transfer the local file to a directory where it has writeable access
-		log.Debugf("%s: Transferring %s to destination: %s", strings.ToUpper(extInfo.name), source, destination)
+		log.Debugf("%s: Transferring %s to destination: %s", strings.ToUpper(extInfo.name), arg1, arg2)
 		if _, err := exec.Command(app, arg0, arg1, arg2).Output(); err != nil {
 			return err
 		}
@@ -62,7 +66,7 @@ func returnFilePathString(fullpath string) (file, path string) {
 }
 
 func execRemoteCommand(provisioner provision.Provisioner, extInfo *ExtensionInfo) error {
-	for _, val := range extInfo.commands {
+	for _, val := range extInfo.run {
 		log.Debugf("%s: Running command: %s", strings.ToUpper(extInfo.name), val)
 		if _, err := provisioner.SSHCommand(val); err != nil {
 			return err
