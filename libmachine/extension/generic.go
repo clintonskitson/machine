@@ -48,7 +48,7 @@ func (extension *GenericExtension) Install(provisioner provision.Provisioner, ho
 	}
 
 	if extInfo.files != nil {
-		fileTransfer(provisioner, hostInfo, extInfo)
+		fileTransfer(provisioner, hostInfo, extInfo, "")
 	}
 
 	if err := execRemoteCommand(provisioner, extInfo); err != nil {

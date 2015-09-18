@@ -93,7 +93,10 @@ func ParseExtensionFile(extensionOptions ExtensionOptions) error {
 				log.Debugf("%s: Parsing files", strings.ToUpper(extInfo.name))
 				files := make(files)
 				for fileskey, filesvalue := range value.(map[string]interface{}) {
-					files[fileskey] = filesvalue.(map[string]string)
+					files[fileskey] = make(map[string]string)
+					for filekey, filevalue := range filesvalue.(map[string]interface{}) {
+						files[fileskey][filekey] = filevalue.(string)
+					}
 				}
 				extInfo.files = files
 				log.Debugf("%s: files=%v", strings.ToUpper(extInfo.name), files)

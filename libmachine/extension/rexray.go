@@ -50,11 +50,11 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 
 	log.Debugf("%s: installing version: %s", strings.ToUpper(extInfo.name), rexVersion)
 	switch rexVersion {
-	case "stable", "staged", "latest":
+	case "stable", "latest":
 		if _, err := provisioner.SSHCommand("curl -sSL https://dl.bintray.com/emccode/rexray/install | sh "); err != nil {
 			return err
 		}
-	case "stupid", "experimental":
+	case "stupid", "unstable", "staged":
 		uNameS, err := provisioner.SSHCommand("uname -s")
 		if err != nil {
 			return err
@@ -64,7 +64,7 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 			return err
 		}
 		log.Debugf("%s: downloading version %s", strings.ToUpper(extInfo.name), rexVersion)
-		if _, err := provisioner.SSHCommand(fmt.Sprintf("curl -L 'https://dl.bintray.com/emccode/rexray/stupid/latest/rexray-%s-%s.tar.gz' -o 'rexray-%s-%s.tar.gz'", strings.TrimSpace(uNameS), strings.TrimSpace(uNameM), strings.TrimSpace(uNameS), strings.TrimSpace(uNameM))); err != nil {
+		if _, err := provisioner.SSHCommand(fmt.Sprintf("curl -L 'https://dl.bintray.com/emccode/rexray/%s/rexray-%s-%s.tar.gz' -o 'rexray-%s-%s.tar.gz'", rexVersion, strings.TrimSpace(uNameS), strings.TrimSpace(uNameM), strings.TrimSpace(uNameS), strings.TrimSpace(uNameM))); err != nil {
 			return err
 		}
 		log.Debugf("%s: extracting version %s", strings.ToUpper(extInfo.name), rexVersion)
@@ -91,7 +91,7 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 	}
 
 	if extInfo.files != nil {
-		fileTransfer(provisioner, hostInfo, extInfo)
+		fileTransfer(provisioner, hostInfo, extInfo, "config.yaml")
 	}
 
 	log.Debugf("%s: starting service", strings.ToUpper(extInfo.name))

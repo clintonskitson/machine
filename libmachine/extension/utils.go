@@ -21,8 +21,11 @@ func appendEnvFile(provisioner provision.Provisioner, extInfo *ExtensionInfo) er
 	return nil
 }
 
-func fileTransfer(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) error {
-	for _, v := range extInfo.files {
+func fileTransfer(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo, checkFileKey string) error {
+	for fileKey, v := range extInfo.files {
+		if fileKey != checkFileKey {
+			continue
+		}
 		var source, destination string
 		for key, value := range v {
 			switch key {
