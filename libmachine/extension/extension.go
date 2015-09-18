@@ -29,10 +29,12 @@ func RegisterExtension(name string, e *RegisteredExtension) {
 // ExtensionInfo is used in ExtensionInstall. Name is the name of the extension.
 // params are the attributes extracted from the JSON file
 type ExtensionInfo struct {
-	name    string
-	version string
-	params  map[string]string
-	files   map[string]interface{}
+	name     string
+	version  string
+	params   map[string]string
+	files    map[string]interface{}
+	commands []string
+	validOS  []string
 }
 
 // params is used in ExtensionInstall. Used to extract attributes
@@ -79,7 +81,7 @@ func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.P
 			switch key {
 			case "version":
 				extInfo.version = value.(string)
-			case "params":
+			case "envs":
 				//create the kay:value store map
 				params := make(params)
 				for paramskey, paramsvalue := range value.(map[string]interface{}) {
@@ -93,7 +95,18 @@ func ExtensionInstall(extensionOptions ExtensionOptions, provisioner provision.P
 					files[fileskey] = filesvalue
 				}
 				extInfo.files = files
+			case "validOS":
+				extInfo.validOS = make([]string, 0)
+				for _, val := range value.([]interface{}) {
+					extInfo.validOS = append(extInfo.validOS, val.(string))
+				}
+			case "commands":
+				extInfo.commands = make([]string, 0)
+				for _, val := range value.([]interface{}) {
+					extInfo.commands = append(extInfo.commands, val.(string))
+				}
 			}
+
 		}
 
 		// FindExtension see if the extension in the JSON file matches a registered extension.

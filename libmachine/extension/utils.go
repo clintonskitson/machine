@@ -3,6 +3,7 @@ package extension
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/docker/machine/libmachine/provision"
@@ -20,11 +21,6 @@ func setEnvVars(provisioner provision.Provisioner, extInfo *ExtensionInfo) error
 }
 
 func fileTransfer(provisioner provision.Provisioner, hostInfo *ExtensionParams, extInfo *ExtensionInfo) error {
-	homeDir, err := provisioner.SSHCommand("echo $HOME")
-	if err != nil {
-		return err
-	}
-
 	for _, v := range extInfo.files {
 		var source, destination string
 		for key, value := range v.(map[string]interface{}) {
@@ -36,25 +32,21 @@ func fileTransfer(provisioner provision.Provisioner, hostInfo *ExtensionParams, 
 			}
 		}
 
-		destFilename, destPath := returnFilePathString(destination)
+		destDir := filepath.Dir(destination)
+
+		//check if the destination directory exists, if it doesn't, create it
+		log.Debugf("%s: Creating directory if it doesn't exist: %s", strings.ToUpper(extInfo.name), destDir)
+		if _, err := provisioner.SSHCommand(fmt.Sprintf("sudo mkdir -p %s", destDir)); err != nil {
+			return err
+		}
 
 		app := "docker-machine"
 		arg0 := "scp"
 		arg1 := source
-		arg2 := fmt.Sprintf("%v:%v/%v", strings.TrimSpace(hostInfo.Hostname), strings.TrimSpace(homeDir), strings.TrimSpace(destFilename))
+		arg2 := fmt.Sprintf("%v:%v", hostInfo.Hostname, destination)
 		//call docker-machine scp to transfer the local file to a directory where it has writeable access
-		log.Debugf("%s: Transferring %s to home directory: %s", strings.ToUpper(extInfo.name), strings.TrimSpace(source), strings.TrimSpace(homeDir))
+		log.Debugf("%s: Transferring %s to destination: %s", strings.ToUpper(extInfo.name), source, destination)
 		if _, err := exec.Command(app, arg0, arg1, arg2).Output(); err != nil {
-			return err
-		}
-		//check if the destination directory exists, if it doesn't, create it
-		log.Debugf("%s: Checking if destination directory exists: %s", strings.ToUpper(extInfo.name), strings.TrimSpace(destPath))
-		if _, err := provisioner.SSHCommand(fmt.Sprintf("sudo -E bash -c '[ ! -d %s  ] && sudo mkdir %s'", strings.TrimSpace(destPath), strings.TrimSpace(destPath))); err != nil {
-			return err
-		}
-		//move the file from the home directory to its destination directory
-		log.Debugf("%s: Moving %s to destination directory: %s", strings.ToUpper(extInfo.name), strings.TrimSpace(destFilename), strings.TrimSpace(destPath))
-		if _, err := provisioner.SSHCommand(fmt.Sprintf("sudo mv %s/%s %s%s", strings.TrimSpace(homeDir), strings.TrimSpace(destFilename), strings.TrimSpace(destPath), strings.TrimSpace(destFilename))); err != nil {
 			return err
 		}
 	}
@@ -67,4 +59,14 @@ func returnFilePathString(fullpath string) (file, path string) {
 	pathSlice := fullPathSlice[:len(fullPathSlice)-1]
 	path = strings.Join(pathSlice[:], "")
 	return file, path
+}
+
+func execRemoteCommand(provisioner provision.Provisioner, extInfo *ExtensionInfo) error {
+	for _, val := range extInfo.commands {
+		log.Debugf("%s: Running command: %s", strings.ToUpper(extInfo.name), val)
+		if _, err := provisioner.SSHCommand(val); err != nil {
+			return err
+		}
+	}
+	return nil
 }

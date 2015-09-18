@@ -72,15 +72,22 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 			return err
 		}
 		log.Debugf("%s: moving binary to /bin", strings.ToUpper(extInfo.name))
-		if _, err := provisioner.SSHCommand("sudo mv rexray /usr/bin"); err != nil {
+		if _, err := provisioner.SSHCommand("sudo mv rexray /bin"); err != nil {
 			return err
 		}
 		log.Debugf("%s: installing service", strings.ToUpper(extInfo.name))
 		if strings.TrimSpace(uNameS) != "Darwin" {
-			if _, err := provisioner.SSHCommand("sudo /usr/bin/rexray service install"); err != nil {
+			if _, err := provisioner.SSHCommand("sudo /bin/rexray service install"); err != nil {
 				return err
 			}
 		}
+		log.Debugf("%s: running version command", strings.ToUpper(extInfo.name))
+		if strings.TrimSpace(uNameS) != "Darwin" {
+			if _, err := provisioner.SSHCommand("sudo rexray version"); err != nil {
+				return err
+			}
+		}
+
 	}
 
 	if extInfo.files != nil {
@@ -88,7 +95,7 @@ func (extension *RexrayExtension) Install(provisioner provision.Provisioner, hos
 	}
 
 	log.Debugf("%s: starting service", strings.ToUpper(extInfo.name))
-	provisioner.SSHCommand("sudo rexray service start")
+	provisioner.SSHCommand("sudo service rexray start")
 
 	return nil
 }
