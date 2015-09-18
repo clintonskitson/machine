@@ -117,13 +117,15 @@ func ParseExtensionFile(extensionOptions ExtensionOptions) error {
 
 			case "copy":
 				files := make(files)
-				const keyi = string(iota)
+				var count int
 				for fileskey, filesvalue := range value.(map[string]interface{}) {
+					keyi := fmt.Sprintf("%s", count)
 					files[keyi] = map[string]string{
 						"source":      fileskey,
 						"destination": filesvalue.(string),
 					}
 					log.Debugf("%s: files[%s]=%v", strings.ToUpper(extInfo.name), keyi, files[keyi])
+					count++
 				}
 				extInfo.files = files
 			}
